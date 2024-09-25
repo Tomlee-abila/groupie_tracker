@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"sync"
@@ -131,6 +132,7 @@ func loadData() {
 		}
 		mu.Lock()
 		relation = rr.Relation
+		fmt.Println(relation)
 		mu.Unlock()
 	}()
 
@@ -191,7 +193,7 @@ func artistHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// Load data
 	loadData()
-
+	fetchD()
 	// Initialize templates
 	InitializeTemplates()
 
@@ -222,4 +224,48 @@ func main() {
 	}
 	fmt.Printf("Server starting on port %s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+type IndexEntry struct {
+	ID             int                     `json:"id"`
+	DatesLocations map[string][]string     `json:"datesLocations"`
+}
+
+type ApiResponse struct {
+	Index []IndexEntry `json:"index"`
+}
+
+func fetchD(){
+	url := relationURL+"/10" // Replace with your API URL
+
+	// Make the HTTP GET request
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Fatalf("Error making GET request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check if the request was successful
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Error: received status code %d", resp.StatusCode)
+	}
+
+	// Read the response body
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Error reading response body: %v", err)
+	}
+
+	// Print the raw JSON (for debugging)
+	fmt.Println("Raw JSON Response:", string(body))
+
+	// Decode the JSON into the struct
+	var data IndexEntry
+	if err := json.Unmarshal(body, &data); err != nil {
+		log.Fatalf("Error decoding JSON: %v", err)
+	}
+
+	// Access the data
+	for location, dates := range data.DatesLocations {
+		fmt.Printf("  %s: %v\n", location, dates)
+	}
 }
